@@ -18,10 +18,10 @@ def batch_load_sql(query: str) -> pd.DataFrame:
 
 def load_features(limit: int, offset: int = 0) -> pd.DataFrame:
     query = f"""
-    SELECT f.timestamp, u.gender, u.age, u.country, u.city, u.exp_group, u.os, u.source, u.is_teenagers, u.is_youth, u.is_adults, u.have_million_people, u.is_capital, u.city_mean_age, u.city_median_age, u.ratio_0, u.ratio_1, u.is_russia, u.city_mean_exp_group, u.age_city_mean_age, u.age_city_median_age, u.city_mean_age_city_median_age, p.text, p.topic, p.cluster, p.pca_1, p.pca_2, p.text_length, p.word_count, f.target
+    SELECT u.*, p.*, f.timestamp, f.action, f.target
     FROM public.feed_data f
-    INNER JOIN public.ilja_pronin_gfr6897_lesson22_step_8_user_data_1 u ON f.user_id = u.user_id
-    INNER JOIN public.ilja_pronin_gfr6897_lesson22_step_7_new_post_text_df_1 p ON f.post_id = p.post_id
+    INNER JOIN public.ilja_pronin_gfr6897_dl_lesson10_step_5_user_data u ON f.user_id = u.user_id
+    INNER JOIN public.ilja_pronin_gfr6897_dl_lesson10_step_5_new_post_text_df p ON f.post_id = p.post_id
     LIMIT {limit} OFFSET {offset};
     """
 
@@ -30,6 +30,23 @@ def load_features(limit: int, offset: int = 0) -> pd.DataFrame:
     data['timestamp'] = pd.to_datetime(data['timestamp'])
     data['day'] = data['timestamp'].dt.day
     data['month'] = data['timestamp'].dt.month
-    data = data.drop('timestamp', axis=1)
+
+    # дополняем
+    data['hour'] = data['timestamp'].dt.hour
+    data['day_of_week'] = data['timestamp'].dt.dayofweek
+    data['is_weekend'] = data['day_of_week'].isin([5, 6]).astype(int)  # 5 - суббота, 6 - воскресенье
+
+    # Категоризация времени суток
+    def get_time_of_day(hour):
+        if 12 <= hour < 18:
+            return 1
+        else:
+            return 0
+
+    data['is_afternoon'] = data['hour'].apply(get_time_of_day)
+
+    # удаляем сильно коррелирующие и ненужные столбцы
+    data = data.drop(
+        ['action', 'user_id', 'post_id', 'timestamp', 'text'], axis=1)
 
     return data

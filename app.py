@@ -36,8 +36,8 @@ def batch_load_sql(query: str) -> pd.DataFrame:
 
 
 def load_features() -> pd.DataFrame:
-    users_features = batch_load_sql('select * from public.ilja_pronin_gfr6897_lesson22_step_8_user_data_1')
-    posts_features = batch_load_sql('select * from public.ilja_pronin_gfr6897_lesson22_step_7_new_post_text_df_1')
+    users_features = batch_load_sql('select * from public.ilja_pronin_gfr6897_dl_lesson10_step_5_user_data')
+    posts_features = batch_load_sql('select * from public.ilja_pronin_gfr6897_dl_lesson10_step_5_new_post_text_df')
     liked_posts = batch_load_sql("SELECT distinct post_id, user_id FROM public.feed_data where action='like'")
     logger.info("Фичи загружены успешно")
     return users_features, posts_features, liked_posts
@@ -52,7 +52,7 @@ def get_model_path(path: str) -> str:
 
 
 def load_models():
-    model_path = get_model_path("catboost_model_step_8")
+    model_path = get_model_path("catboost_model_step_5")
     loaded_model = CatBoostClassifier()
     loaded_model.load_model(model_path)
     logger.info("Модель загружена успешно")
@@ -80,13 +80,34 @@ def recommended_posts(id: int, time: datetime, limit: int = 10) -> List[PostGet]
         posts_and_users["day"] = time.day
         posts_and_users["month"] = time.month
 
+        posts_and_users["day_of_week"] = time.weekday()
+
+        posts_and_users['hour'] = time.hour
+        posts_and_users['is_weekend'] = posts_and_users['day_of_week'].isin([5, 6]).astype(
+            int)  # 5 - суббота, 6 - воскресенье
+
+        def get_time_of_day(hour):
+            if 12 <= hour < 18:
+                return 1
+            else:
+                return 0
+
+        posts_and_users['is_afternoon'] = posts_and_users['hour'].apply(get_time_of_day)
+
         predicts = model.predict_proba(posts_and_users[['gender', 'age', 'country', 'city', 'exp_group', 'os', 'source',
        'is_teenagers', 'is_youth', 'is_adults', 'have_million_people',
-       'is_capital', 'city_mean_age', 'city_median_age', 'ratio_0', 'ratio_1',
-       'is_russia', 'city_mean_exp_group', 'age_city_mean_age',
-       'age_city_median_age', 'city_mean_age_city_median_age', 'text', 'topic',
-       'cluster', 'pca_1', 'pca_2', 'text_length', 'word_count',
-       'day', 'month']])[:, 1]
+       'is_capital', 'city_mean_age', 'city_median_age', 'ratio_1',
+       'is_russia', 'city_mean_exp_group', 'city_popularity', 'topic',
+       'avg_word_length', 'unique_word_count', 'pca_roberta_0',
+       'pca_roberta_1', 'pca_roberta_2', 'pca_roberta_3', 'pca_roberta_4',
+       'pca_roberta_5', 'pca_roberta_6', 'pca_roberta_7', 'pca_roberta_8',
+       'pca_roberta_9', 'pca_roberta_10', 'pca_roberta_11', 'pca_roberta_12',
+       'pca_roberta_13', 'pca_roberta_14', 'pca_roberta_15', 'pca_roberta_16',
+       'pca_roberta_17', 'pca_roberta_18', 'pca_roberta_19', 'pca_roberta_20',
+       'pca_roberta_21', 'pca_roberta_22', 'pca_roberta_23', 'pca_roberta_24',
+       'pca_roberta_25', 'pca_roberta_26', 'pca_roberta_27', 'pca_roberta_28',
+       'pca_roberta_29', 'pca_roberta_30', 'pca_roberta_31', 'day',
+       'month', 'hour', 'day_of_week', 'is_weekend', 'is_afternoon']])[:, 1]
 
         posts_and_users["predicts"] = predicts
 
